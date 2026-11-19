@@ -1,6 +1,6 @@
 # Kavita reading server on Railway
 
-The current template release is `v1.0.0`. It runs [Kavita](https://github.com/Kareadita/Kavita) `0.9.1.4` with the [dufs](https://github.com/sigoden/dufs) `0.47.0` upload manager behind a [Caddy](https://caddyserver.com) `2.11.9` gateway, all pinned by image digest.
+The current template release is `v1.0.1`. It runs [Kavita](https://github.com/Kareadita/Kavita) `0.9.1.4` with the [dufs](https://github.com/sigoden/dufs) `0.47.0` upload manager behind a [Caddy](https://caddyserver.com) `2.11.9` gateway, all pinned by image digest.
 
 Kavita is a self-hosted reading server for ebooks (EPUB, PDF), comics (CBZ, CBR, CB7) and manga, with a web reader, OPDS feeds, reading progress, collections and multiple users. Kavita reads books from folders on disk and has no upload feature of its own, so this template adds a browser upload manager that writes into the same Railway volume Kavita scans.
 

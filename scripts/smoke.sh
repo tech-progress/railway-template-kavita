@@ -71,18 +71,23 @@ read_book() {
 wait_for_health
 
 # Public boundary: setup and the upload manager need the gateway credential.
+wrong_user="${gateway_username}:wrong-password-for-smoke"
 for path in /api/account/register /API/Account/Register /api/account/register/ //api/account/register /api/account/%72egister /api/./account/register; do
   code="$(status -X POST -H 'Content-Type: application/json' --data '{"username":"probe","password":"Probe-123456","email":""}' "${base_url}${path}")"
   [[ "${code}" == 401 ]] || fail "anonymous POST ${path} returned ${code}, expected 401"
+  code="$(status -u "${wrong_user}" -X POST -H 'Content-Type: application/json' --data '{"username":"probe","password":"Probe-123456","email":""}' "${base_url}${path}")"
+  [[ "${code}" == 401 ]] || fail "wrong-password POST ${path} returned ${code}, expected 401"
 done
 for path in /files/ /files /FILES/ /%66iles/ "/files/?json"; do
   code="$(status "${base_url}${path}")"
   [[ "${code}" == 401 ]] || fail "anonymous GET ${path} returned ${code}, expected 401"
+  code="$(status -u "${wrong_user}" "${base_url}${path}")"
+  [[ "${code}" == 401 ]] || fail "wrong-password GET ${path} returned ${code}, expected 401"
 done
-code="$(status -u "${gateway_username}:wrong-password-for-smoke" "${base_url}/files/")"
-[[ "${code}" == 401 ]] || fail "wrong gateway password on /files/ returned ${code}, expected 401"
 code="$(status -X PUT --data-binary 'x' "${base_url}/files/anonymous.txt")"
 [[ "${code}" == 401 ]] || fail "anonymous upload returned ${code}, expected 401"
+code="$(status -u "${wrong_user}" -X PUT --data-binary 'x' "${base_url}/files/wrong-password.txt")"
+[[ "${code}" == 401 ]] || fail "wrong-password upload returned ${code}, expected 401"
 echo "boundary: anonymous and wrong-credential setup and upload requests return 401"
 
 if [[ "${phase}" == initial ]]; then

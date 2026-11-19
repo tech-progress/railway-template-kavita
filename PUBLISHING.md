@@ -1,6 +1,6 @@
 # Publishing
 
-The current template release is `v1.0.0`. The `Kavita` service builds `tech-progress/railway-template-kavita` from `release-v1` with root directory `/`; the gateway runs the pinned Caddy image.
+The current template release is `v1.0.1`. The `Kavita` service builds `tech-progress/railway-template-kavita` from `release-v1` with root directory `/`; the gateway runs the pinned Caddy image.
 
 1. `bun install --frozen-lockfile` and `./scripts/verify.sh`.
 2. Clean local build and smoke: `docker compose down -v`, `docker compose up -d --build`, `SMOKE_PHASE=initial ./scripts/smoke.sh`, `docker compose restart kavita`, `SMOKE_PHASE=restart ./scripts/smoke.sh`, then `docker compose down -v`.
