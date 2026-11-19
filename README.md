@@ -53,6 +53,8 @@ No other values are required. Email, OIDC and Kavita+ are optional Kavita featur
 
 The `/data` volume holds both the Kavita database and your books, so a redeploy or restart keeps accounts, libraries, reading progress, the JWT signing key and uploaded files. Railway attaches one volume per service, which is why config and library share it. Large comic or manga collections need a larger volume; resize it in Railway before it fills.
 
+The image sets `DOTNET_gcServer=0` (workstation garbage collection). With ASP.NET's default server GC, Kavita sized its heap to Railway's container limits and held about 1.25 GB; with workstation GC it settled near 0.5 GB for the same workload. Large scans of big libraries use more memory and CPU while they run.
+
 This is a single-instance deployment for individuals, families and small groups, not a high-availability setup. Back up the whole volume before upgrades. The upload manager can delete files under `/data/library`; anyone with the gateway password can manage the library.
 
 ## Local verification

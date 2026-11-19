@@ -7,6 +7,9 @@ COPY railway-entrypoint.sh /usr/local/bin/railway-entrypoint
 RUN chmod 0755 /usr/local/bin/railway-entrypoint \
  && rm -rf /kavita/config \
  && ln -s /data/config /kavita/config
-ENV KAVITA_DATA_DIR=/data UPLOAD_PORT=5001
+# ASP.NET defaults to Server GC, which sizes its heaps to every CPU and all the
+# memory the container can see. On Railway that held Kavita at about 1.25 GB;
+# workstation GC settled near 0.5 GB for the same workload.
+ENV KAVITA_DATA_DIR=/data UPLOAD_PORT=5001 DOTNET_gcServer=0
 EXPOSE 5000 5001
 ENTRYPOINT ["/usr/local/bin/railway-entrypoint"]

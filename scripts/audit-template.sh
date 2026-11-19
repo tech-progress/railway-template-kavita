@@ -42,12 +42,12 @@ while IFS= read -r name; do
     check "${name} ${key} description" eq "$(jq -r --arg k "${key}" '.variables[$k].description // ""' <<<"${actual}")" "$(jq -r --arg n "${name}" --arg k "${key}" '.[$n][$k]' "${root}/template-descriptions.json")"
   done < <(jq -r --arg n "${name}" '.[$n]|keys[]' "${root}/template-defaults.json")
   if jq -e --arg n "${name}" '.[$n]!=null' "${root}/template-volumes.json" >/dev/null; then
-    check "${name} volume" eq "$(jq -c '[(.volumeMounts//{})|length, ((.volumeMounts//{})|to_entries[0].value|{mountPath,sizeMB})]' <<<"${actual}")" "$(jq -c --arg n "${name}" '[1, .[$n]]' "${root}/template-volumes.json")"
+    check "${name} volume" eq "$(jq -c '[((.volumeMounts//{})|length), ((.volumeMounts//{})|to_entries[0].value|{mountPath,sizeMB})]' <<<"${actual}")" "$(jq -c --arg n "${name}" '[1, .[$n]]' "${root}/template-volumes.json")"
   else
     check "${name} no volume" eq "$(jq -r '(.volumeMounts//{})|length' <<<"${actual}")" 0
   fi
   if jq -e --arg n "${name}" '.[$n].publicPort!=null' "${root}/template-networking.json" >/dev/null; then
-    check "${name} domain" eq "$(jq -c '[(.networking.serviceDomains//{})|length, .networking.serviceDomains["<hasDomain>"].port]' <<<"${actual}")" "$(jq -c --arg n "${name}" '[1, .[$n].publicPort]' "${root}/template-networking.json")"
+    check "${name} domain" eq "$(jq -c '[((.networking.serviceDomains//{})|length), .networking.serviceDomains["<hasDomain>"].port]' <<<"${actual}")" "$(jq -c --arg n "${name}" '[1, .[$n].publicPort]' "${root}/template-networking.json")"
   else
     check "${name} private" eq "$(jq -r '(.networking.serviceDomains//{})|length' <<<"${actual}")" 0
   fi

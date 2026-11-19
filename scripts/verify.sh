@@ -23,6 +23,7 @@ caddy_pin='caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031
 grep -Fxq "${kavita_pin}" "${root}/Dockerfile" || fail "Kavita pin"
 grep -Fxq "${dufs_pin}" "${root}/Dockerfile" || fail "dufs pin"
 ! grep -Eq '^VOLUME' "${root}/Dockerfile" || fail "Railway rejects Dockerfile VOLUME"
+grep -Eq '^ENV .*DOTNET_gcServer=0' "${root}/Dockerfile" || fail "workstation GC keeps Kavita memory near 0.5 GB on Railway"
 grep -Fq "image: ${caddy_pin}" "${root}/compose.yaml" || fail "Compose Caddy pin"
 
 graph="$(cd "${root}" && ./node_modules/.bin/railway-iac-ts .railway/railway.ts </dev/null)"

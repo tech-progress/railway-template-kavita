@@ -1,5 +1,5 @@
 import { defineRailway, github, group, project, service, volume } from "railway/iac";
-import defaults from "../template-defaults.json";
+import defaults from "../template-defaults.json" with { type: "json" };
 
 const KAVITA_SOURCE = github("tech-progress/railway-template-kavita", { branch: "release-v1", rootDirectory: "/" });
 const CADDY_IMAGE = "caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee";
