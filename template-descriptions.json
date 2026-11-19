@@ -1,0 +1,15 @@
+{
+  "Kavita": {
+    "PORT": "Kavita web and API listener used by Railway health checks.",
+    "KAVITA_DATA_DIR": "Volume mount holding config/ (Kavita database and settings) and library/ (uploaded books). Must stay /data.",
+    "UPLOAD_PORT": "Private dufs upload server listener reached only through the gateway at /files/."
+  },
+  "Kavita Gateway": {
+    "PORT": "Public gateway listener.",
+    "GATEWAY_USERNAME": "Username for first-admin setup and the /files/ upload manager.",
+    "GATEWAY_PASSWORD": "Generated password for first-admin setup and the /files/ upload manager.",
+    "KAVITA_UPSTREAM": "Private Kavita web and API endpoint.",
+    "UPLOAD_UPSTREAM": "Private book upload endpoint.",
+    "GATEWAY_CONFIG": "Pinned Caddy policy: Basic Auth on setup and /files/, Kavita login everywhere else."
+  }
+}

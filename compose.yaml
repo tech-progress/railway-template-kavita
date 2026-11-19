@@ -1,0 +1,70 @@
+name: kavita-reading-server-local
+# Local mirror of the Railway topology: Kavita (private, one volume at /data)
+# and the Caddy gateway (the only published port). Memory limits keep the
+# stack small on shared machines.
+services:
+  kavita:
+    build: .
+    image: kavita-reading-server:local
+    environment:
+      PORT: "5000"
+      KAVITA_DATA_DIR: /data
+      UPLOAD_PORT: "5001"
+    volumes: ["kavita-data:/data"]
+    mem_limit: 768m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/api/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+  gateway:
+    image: caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee
+    entrypoint: ["/bin/sh", "-ec"]
+    # Identical to GATEWAY_START in .railway/railway.ts ($$ escapes Compose interpolation).
+    command:
+      - "case \"$$GATEWAY_USERNAME\" in \"\"|*[!A-Za-z0-9._-]*) echo \"GATEWAY_USERNAME must use letters, digits, dot, dash or underscore.\" >&2; exit 64;; esac; [ \"$$(printf \"%s\" \"$$GATEWAY_PASSWORD\" | wc -c)\" -ge 16 ] || { echo \"GATEWAY_PASSWORD must have at least 16 characters.\" >&2; exit 64; }; password_hash=\"$$(printf \"%s\" \"$$GATEWAY_PASSWORD\" | caddy hash-password)\"; unset GATEWAY_PASSWORD; printf \"%s\\n\" \"$$GATEWAY_CONFIG\" | sed -e \"s|__USERNAME__|$$GATEWAY_USERNAME|g\" -e \"s|__PASSWORD_HASH__|$$password_hash|g\" -e \"s|__KAVITA__|$$KAVITA_UPSTREAM|g\" -e \"s|__UPLOADS__|$$UPLOAD_UPSTREAM|g\" >/tmp/Caddyfile; unset GATEWAY_CONFIG; exec caddy run --config /tmp/Caddyfile --adapter caddyfile"
+    environment:
+      GATEWAY_USERNAME: ${GATEWAY_USERNAME:-library-admin}
+      GATEWAY_PASSWORD: ${GATEWAY_PASSWORD:?Set GATEWAY_PASSWORD}
+      KAVITA_UPSTREAM: kavita:5000
+      UPLOAD_UPSTREAM: kavita:5001
+      GATEWAY_CONFIG: |
+        {
+          admin off
+        }
+        :8080 {
+          handle /healthz {
+            rewrite * /api/health
+            reverse_proxy http://__KAVITA__
+          }
+          @register path /api/account/register /api/account/register/*
+          handle @register {
+            basic_auth {
+              __USERNAME__ __PASSWORD_HASH__
+            }
+            reverse_proxy http://__KAVITA__ {
+              header_up -Authorization
+              header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+            }
+          }
+          handle /files* {
+            basic_auth {
+              __USERNAME__ __PASSWORD_HASH__
+            }
+            reverse_proxy http://__UPLOADS__ {
+              header_up -Authorization
+            }
+          }
+          handle {
+            reverse_proxy http://__KAVITA__ {
+              header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+            }
+          }
+        }
+    ports: ["127.0.0.1:13091:8080"]
+    mem_limit: 128m
+    cpus: 0.5
+    depends_on: [kavita]
+volumes:
+  kavita-data:

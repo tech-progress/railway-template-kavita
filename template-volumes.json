@@ -1,0 +1,6 @@
+{
+  "Kavita": {
+    "mountPath": "/data",
+    "sizeMB": 5000
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "Kavita": {
+    "PORT": "5000",
+    "KAVITA_DATA_DIR": "/data",
+    "UPLOAD_PORT": "5001"
+  },
+  "Kavita Gateway": {
+    "PORT": "8080",
+    "GATEWAY_USERNAME": "library-admin",
+    "GATEWAY_PASSWORD": "${{secret(32)}}",
+    "KAVITA_UPSTREAM": "${{Kavita.RAILWAY_PRIVATE_DOMAIN}}:5000",
+    "UPLOAD_UPSTREAM": "${{Kavita.RAILWAY_PRIVATE_DOMAIN}}:5001",
+    "GATEWAY_CONFIG": "{\n  admin off\n}\n:8080 {\n  handle /healthz {\n    rewrite * /api/health\n    reverse_proxy http://__KAVITA__\n  }\n  @register path /api/account/register /api/account/register/*\n  handle @register {\n    basic_auth {\n      __USERNAME__ __PASSWORD_HASH__\n    }\n    reverse_proxy http://__KAVITA__ {\n      header_up -Authorization\n      header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}\n    }\n  }\n  handle /files* {\n    basic_auth {\n      __USERNAME__ __PASSWORD_HASH__\n    }\n    reverse_proxy http://__UPLOADS__ {\n      header_up -Authorization\n    }\n  }\n  handle {\n    reverse_proxy http://__KAVITA__ {\n      header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}\n    }\n  }\n}"
+  }
+}
