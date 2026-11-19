@@ -10,6 +10,12 @@ template_name="Kavita reading server"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 token="$(jq -r '.user.accessToken' "${RAILWAY_CONFIG_PATH:-${HOME}/.railway/config.json}")"
 graph="$(cd "${root}" && ./node_modules/.bin/railway-iac-ts .railway/railway.ts </dev/null)"
+# The bearer token reaches curl through a config file descriptor (printf is a
+# shell builtin), never through process arguments visible on a shared machine.
+internal_api() {
+  curl --compressed --fail --silent --show-error --config <(printf 'header = "Authorization: Bearer %s"\n' "${token}") \
+    -H 'Content-Type: application/json' --data-binary @- https://backboard.railway.com/graphql/internal <<<"$1"
+}
 draft="$(railway api 'query Draft($id:String!){template(id:$id){serializedConfig}}' --var "id=${template_id}" --compact)"
 
 variables="$(jq -nc --argjson draft "${draft}" --argjson graph "${graph}" \
@@ -31,6 +37,10 @@ variables="$(jq -nc --argjson draft "${draft}" --argjson graph "${graph}" \
         | .services[$s.key].deploy.startCommand = ($d.deploy.startCommand // null)
         | .services[$s.key].deploy.healthcheckPath = ($d.deploy.healthcheckPath // null)
         | .services[$s.key].deploy.healthcheckTimeout = ($d.deploy.healthcheckTimeout // null)
+        # Kavita uses SQLite on one volume: exactly one replica, restarted on failure.
+        | .services[$s.key].deploy.numReplicas = 1
+        | .services[$s.key].deploy.restartPolicyType = "ON_FAILURE"
+        | .services[$s.key].deploy.restartPolicyMaxRetries = 10
         | (.services[$s.key].variables // {}) as $existing
         | .services[$s.key].variables = reduce (($defaults[0][$s.value.name] // {})|to_entries[]) as $v ({};
             .[$v.key] = (($existing[$v.key] // {}) + {defaultValue:$v.value, isOptional:false, description:($descriptions[0][$s.value.name][$v.key] // "")}))
@@ -41,18 +51,20 @@ variables="$(jq -nc --argjson draft "${draft}" --argjson graph "${graph}" \
                 | .services[$s.key].volumeMounts[$m].sizeMB = $volumes[0][$s.value.name].sizeMB)
             end
           else .services[$s.key].volumeMounts = {} end
-        | if $networking[0][$s.value.name].publicPort != null then
-            .services[$s.key].networking.serviceDomains = {"<hasDomain>":{port:$networking[0][$s.value.name].publicPort}}
-          else .services[$s.key].networking.serviceDomains = {} end
-        | .services[$s.key].networking.tcpProxies = {})
+        # Replace networking wholesale so no custom domain, TCP proxy or other
+        # ingress survives from the generated draft.
+        | .services[$s.key].networking = {
+            serviceDomains: (if $networking[0][$s.value.name].publicPort != null
+              then {"<hasDomain>":{port:$networking[0][$s.value.name].publicPort}} else {} end),
+            tcpProxies: {}})
       | {id:$id, input:{name:$name, workspaceId:$workspaceId, serializedConfig:.}}
     end')"
 
 request="$(jq -nc --argjson variables "${variables}" --arg query 'mutation Update($id:String!,$input:TemplateUpsertConfigInput!){templateUpsertConfig(id:$id,input:$input){id code}}' '{query:$query,variables:$variables}')"
-response="$(curl --compressed --fail --silent --show-error https://backboard.railway.com/graphql/internal -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' --data-binary "${request}")"
+response="$(internal_api "${request}")"
 jq -e '.data.templateUpsertConfig.id!=null and ((.errors//[])|length==0)' <<<"${response}" >/dev/null || { jq -c '.errors' <<<"${response}" >&2; exit 1; }
 
 settings="$(jq -nc --arg id "${template_id}" --arg workspaceId "${workspace_id}" --arg name "${template_name}" --arg query 'mutation Settings($id:String!,$input:TemplateUpsertSettingsInput!){templateUpsertSettings(id:$id,input:$input){id name}}' '{query:$query,variables:{id:$id,input:{name:$name,workspaceId:$workspaceId}}}')"
-response="$(curl --compressed --fail --silent --show-error https://backboard.railway.com/graphql/internal -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' --data-binary "${settings}")"
+response="$(internal_api "${settings}")"
 jq -e --arg name "${template_name}" '.data.templateUpsertSettings.name==$name and ((.errors//[])|length==0)' <<<"${response}" >/dev/null || { jq -c '.errors' <<<"${response}" >&2; exit 1; }
 echo "Restored Kavita draft ${template_id}."

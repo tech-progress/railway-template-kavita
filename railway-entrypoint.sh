@@ -26,14 +26,21 @@ cd /kavita
 /bin/bash /entrypoint.sh &
 kavita_pid=$!
 
+stopping=0
 stop() {
   kill -TERM "${kavita_pid}" "${dufs_pid}" 2>/dev/null || true
 }
-trap stop TERM INT
+trap 'stopping=1; stop' TERM INT
 
 status=0
 wait -n "${kavita_pid}" "${dufs_pid}" || status=$?
 stop
 wait "${kavita_pid}" 2>/dev/null || true
 wait "${dufs_pid}" 2>/dev/null || true
-exit "${status}"
+if (( stopping )); then
+  exit 0
+fi
+# A child exited on its own. Exit nonzero even if it exited cleanly so
+# Railway's on-failure restart policy brings the service back.
+echo "A Kavita service process exited unexpectedly (status ${status}); stopping the container." >&2
+exit $(( status == 0 ? 1 : status ))

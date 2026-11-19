@@ -35,6 +35,8 @@ while IFS= read -r name; do
   for field in startCommand healthcheckPath healthcheckTimeout; do
     check "${name} ${field}" eq "$(jq -r --arg f "${field}" '.deploy[$f] // ""' <<<"${actual}")" "$(jq -r --arg f "${field}" '.deploy[$f] // ""' <<<"${desired}")"
   done
+  check "${name} one replica" eq "$(jq -r '.deploy.numReplicas // 1' <<<"${actual}")" 1
+  check "${name} restart policy" eq "$(jq -r '[.deploy.restartPolicyType, .deploy.restartPolicyMaxRetries]|@tsv' <<<"${actual}")" $'ON_FAILURE\t10'
   check "${name} variable keys" eq "$(jq -r '(.variables//{})|keys|sort|join(",")' <<<"${actual}")" "$(jq -r --arg n "${name}" '.[$n]|keys|sort|join(",")' "${root}/template-defaults.json")"
   while IFS= read -r key; do
     check "${name} ${key} default" eq "$(jq -r --arg k "${key}" '.variables[$k].defaultValue // "__MISSING__"' <<<"${actual}")" "$(jq -r --arg n "${name}" --arg k "${key}" '.[$n][$k]' "${root}/template-defaults.json")"
@@ -52,6 +54,8 @@ while IFS= read -r name; do
     check "${name} private" eq "$(jq -r '(.networking.serviceDomains//{})|length' <<<"${actual}")" 0
   fi
   check "${name} no tcp proxy" eq "$(jq -r '(.networking.tcpProxies//{})|length' <<<"${actual}")" 0
+  # Any other networking entry (custom domains or a future ingress type) fails.
+  check "${name} no other ingress" eq "$(jq -r '[(.networking//{})|to_entries[]|select(.key!="serviceDomains" and .key!="tcpProxies")|select(.value!=null and .value!={} and .value!=[])]|length' <<<"${actual}")" 0
 done <<<"${desired_names}"
 
 (( failures == 0 )) || { echo "Kavita template audit failed with ${failures} mismatch(es)." >&2; exit 1; }

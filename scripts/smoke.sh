@@ -33,7 +33,13 @@ chmod 600 "${gateway_auth}"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 status() { curl --silent --output /dev/null --write-out '%{http_code}' --path-as-is "$@"; }
 gw() { curl --fail --silent --show-error --netrc-file "${gateway_auth}" "$@"; }
-api() { curl --fail --silent --show-error -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' "$@"; }
+# Secrets never appear in process arguments: the JWT goes through a curl config
+# descriptor (printf is a builtin) and passwords through jq's environment and stdin.
+api() { curl --fail --silent --show-error --config <(printf 'header = "Authorization: Bearer %s"\n' "${token}") -H 'Content-Type: application/json' "$@"; }
+credentials_json() {
+  SMOKE_USERNAME="${kavita_username}" SMOKE_PASSWORD="${kavita_password}" jq -nc --arg extra "$1" \
+    '{username:env.SMOKE_USERNAME, password:env.SMOKE_PASSWORD} + (if $extra == "login" then {apiKey:""} else {email:""} end)'
+}
 urlpath() { jq -rn --arg value "$1" '$value|@uri'; }
 
 wait_for_health() {
@@ -45,8 +51,7 @@ wait_for_health() {
 }
 
 login() {
-  curl --fail --silent --show-error -H 'Content-Type: application/json' \
-    --data "$(jq -nc --arg u "${kavita_username}" --arg p "${kavita_password}" '{username:$u,password:$p,apiKey:""}')" \
+  credentials_json login | curl --fail --silent --show-error -H 'Content-Type: application/json' --data-binary @- \
     "${base_url}/api/account/login" | jq -r '.token'
 }
 
@@ -82,8 +87,7 @@ echo "boundary: anonymous and wrong-credential setup and upload requests return 
 
 if [[ "${phase}" == initial ]]; then
   if [[ "$(curl --fail --silent --show-error "${base_url}/api/admin/exists")" == false ]]; then
-    gw -X POST -H 'Content-Type: application/json' \
-      --data "$(jq -nc --arg u "${kavita_username}" --arg p "${kavita_password}" '{username:$u,password:$p,email:""}')" \
+    credentials_json register | gw -X POST -H 'Content-Type: application/json' --data-binary @- \
       "${base_url}/api/account/register" >/dev/null
     echo "setup: first admin created through the gateway credential"
   fi
